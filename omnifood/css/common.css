@@ -1,0 +1,65 @@
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+html{
+    font-size: 62.5%;
+}
+body{
+    font-family: 'Rubik', sans-serif;
+    line-height: 1;
+    font-weight: 400;
+    color: #555;
+}
+strong{
+    font-weight: 500;
+}
+li{
+    list-style: none;
+}
+a{
+    text-decoration: none;
+}
+/* ******************* */
+/* 通用组件部分 */
+/* ******************* */
+.margin-right-sm{
+    margin-right: 1.2rem;
+}
+.container{
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 3.2rem;
+}
+.grid{
+    display: grid;
+    gap: 3.2rem;
+}
+.grid--2--cols{
+    grid-template-columns: repeat(2,1fr);
+}
+.grid--3--cols{
+    grid-template-columns: repeat(3,1fr);
+}
+.grid--4--cols{
+    grid-template-columns: repeat(4,1fr);
+}
+.grid--center{
+    align-items: center;
+}
+.grid--center--gap{
+    row-gap: 9.6rem;
+    column-gap: 6.4rem;
+}
+/* 字体图标 */
+.icon-font{
+    font-family: "iconfont";
+    color: #e67e22;
+    font-size: 2.4rem;
+}
+/* logo图标 */
+.logo{
+    width: auto;
+    height: 2.2rem;
+}
