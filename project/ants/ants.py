@@ -1,6 +1,8 @@
 """CS 61A presents Ants Vs. SomeBees."""
 
+from pydoc import plain
 import random
+from time import sleep
 from ucb import main, interact, trace
 from collections import OrderedDict
 
@@ -54,6 +56,7 @@ class Insect:
 
     damage = 0
     # ADD CLASS ATTRIBUTES HERE
+    is_waterproof = False
 
     def __init__(self, health, place=None):
         """Create an Insect with a health amount and a starting PLACE."""
@@ -106,11 +109,13 @@ class Ant(Insect):
     implemented = False  # Only implemented Ant classes should be instantiated
     food_cost = 0
     is_container = False
+    blocks_path = True
     # ADD CLASS ATTRIBUTES HERE
 
     def __init__(self, health=1):
         """Create an Insect with a HEALTH quantity."""
         super().__init__(health)
+        self.is_double = False
 
     @classmethod
     def construct(cls, gamestate):
@@ -134,8 +139,19 @@ class Ant(Insect):
             place.ant = self
         else:
             # BEGIN Problem 8b
-            assert place.ant is None, 'Two ants in {0}'.format(place)
+            # 自身是容器蚂蚁且能包含另外一只蚂蚁
+            if self.can_contain(place.ant):
+                temp = place.ant
+                place.ant = self
+                self.store_ant(temp)
+            # 自身是容器蚂蚁且能包含另外一只蚂蚁
+            elif place.ant.can_contain(self):
+                place.ant.store_ant(self)
+            else:
+                assert place.ant is None, 'Two ants in {0}'.format(place)
+            
             # END Problem 8b
+
         Insect.add_to(self, place)
 
     def remove_from(self, place):
@@ -151,6 +167,9 @@ class Ant(Insect):
         """Double this ants's damage, if it has not already been doubled."""
         # BEGIN Problem 12
         "*** YOUR CODE HERE ***"
+        if self.is_double == False:
+            self.damage = self.damage * 2
+            self.is_double = True
         # END Problem 12
 
 
@@ -334,13 +353,6 @@ class HungryAnt(Ant):
         else:
             self.turns_to_chew += 1
 
-
-
-
-
-
-
-    
 # END Problem 7
 
 
@@ -357,11 +369,16 @@ class ContainerAnt(Ant):
     def can_contain(self, other):
         # BEGIN Problem 8a
         "*** YOUR CODE HERE ***"
+        # 自身没有包含任何蚂蚁且另外一个蚂蚁不是容器蚂蚁
+        if self.ant_contained is None and not other.is_container:
+            return True
+        return False
         # END Problem 8a
 
     def store_ant(self, ant):
         # BEGIN Problem 8a
         "*** YOUR CODE HERE ***"
+        self.ant_contained = ant
         # END Problem 8a
 
     def remove_ant(self, ant):
@@ -382,6 +399,8 @@ class ContainerAnt(Ant):
     def action(self, gamestate):
         # BEGIN Problem 8a
         "*** YOUR CODE HERE ***"
+        if self.ant_contained:
+            self.ant_contained.action(gamestate)
         # END Problem 8a
 
 
@@ -392,11 +411,33 @@ class BodyguardAnt(ContainerAnt):
     food_cost = 4
     # OVERRIDE CLASS ATTRIBUTES HERE
     # BEGIN Problem 8c
-    implemented = False   # Change to True to view in the GUI
+    implemented = True   # Change to True to view in the GUI
+    
+    def __init__(self, health = 2):
+        super().__init__(health)
+
     # END Problem 8c
 
 # BEGIN Problem 9
 # The TankAnt class
+class TankAnt(ContainerAnt):
+    name = 'Tank'
+    implemented = True
+    food_cost = 6
+    damage = 1
+
+    def __init__(self,health = 2):
+        super().__init__(health)
+
+    
+    def action(self, gamestate):
+        "*** YOUR CODE HERE ***"
+        if self.ant_contained:
+            self.ant_contained.action(gamestate)
+        bees_copy = self.place.bees[:]
+        for item in bees_copy:
+            item.reduce_health(self.damage)
+        
 # END Problem 9
 
 
@@ -408,26 +449,41 @@ class Water(Place):
         its health to 0."""
         # BEGIN Problem 10
         "*** YOUR CODE HERE ***"
+        super().add_insect(insect)
+        if insect.is_waterproof == False:
+            insect.reduce_health(insect.health)
+
         # END Problem 10
 
 # BEGIN Problem 11
 # The ScubaThrower class
+
+class ScubaThrower(ThrowerAnt):
+
+    name = 'Scuba'
+    implemented = True
+    is_waterproof = True
+    food_cost = 6
+
+    def __init__(self, health=1):
+        super().__init__(health)
+
 # END Problem 11
 
 # BEGIN Problem 12
 
 
-class QueenAnt(Ant):  # You should change this line
+class QueenAnt(ScubaThrower):  # You should change this line
 # END Problem 12
     """The Queen of the colony. The game is over if a bee enters her place."""
-
     name = 'Queen'
     food_cost = 7
     # OVERRIDE CLASS ATTRIBUTES HERE
     # BEGIN Problem 12
-    implemented = False   # Change to True to view in the GUI
+    implemented = True   # Change to True to view in the GUI
     # END Problem 12
-
+    def __init__(self, health=1):
+        super().__init__(health)
     @classmethod
     def construct(cls, gamestate):
         """
@@ -436,6 +492,11 @@ class QueenAnt(Ant):  # You should change this line
         """
         # BEGIN Problem 12
         "*** YOUR CODE HERE ***"
+        if gamestate.queen:
+            return None 
+        else:
+            gamestate.queen = super().construct(gamestate) 
+            return gamestate.queen
         # END Problem 12
 
     def action(self, gamestate):
@@ -444,6 +505,16 @@ class QueenAnt(Ant):  # You should change this line
         """
         # BEGIN Problem 12
         "*** YOUR CODE HERE ***"
+        super().action(gamestate)
+        current = self.place.exit
+        
+        while current:
+            if current.ant:
+                current.ant.double()
+                if current.ant.is_container and current.ant.ant_contained:
+                    current.ant.ant_contained.double()
+            current = current.exit
+
         # END Problem 12
 
     def reduce_health(self, amount):
@@ -452,8 +523,14 @@ class QueenAnt(Ant):  # You should change this line
         """
         # BEGIN Problem 12
         "*** YOUR CODE HERE ***"
+        self.health -= amount
+        if self.health <= 0 :
+            ants_lose()
+        
         # END Problem 12
-
+    
+    def remove_from(self, place):
+        return None
 
 class AntRemover(Ant):
     """Allows the player to remove ants from the board in the GUI."""
@@ -471,7 +548,8 @@ class Bee(Insect):
     name = 'Bee'
     damage = 1
     # OVERRIDE CLASS ATTRIBUTES HERE
-
+    slow_count = 0
+    is_waterproof  = True
     def sting(self, ant):
         """Attack an ANT, reducing its health by 1."""
         ant.reduce_health(self.damage)
@@ -485,7 +563,8 @@ class Bee(Insect):
         """Return True if this Bee cannot advance to the next Place."""
         # Special handling for NinjaAnt
         # BEGIN Problem Optional 1
-        return self.place.ant is not None
+        # return self.place.ant is not None
+        return self.place.ant is not None and self.place.ant.blocks_path
         # END Problem Optional 1
 
     def action(self, gamestate):
@@ -523,13 +602,17 @@ class NinjaAnt(Ant):
     damage = 1
     food_cost = 5
     # OVERRIDE CLASS ATTRIBUTES HERE
+    blocks_path = False
     # BEGIN Problem Optional 1
-    implemented = False   # Change to True to view in the GUI
+    implemented = True   # Change to True to view in the GUI
     # END Problem Optional 1
 
     def action(self, gamestate):
         # BEGIN Problem Optional 1
         "*** YOUR CODE HERE ***"
+        bees_copy = self.place.bees[:]
+        for bee in bees_copy:
+            bee.reduce_health(self.damage)
         # END Problem Optional 1
 
 ############
@@ -543,6 +626,7 @@ class SlowThrower(ThrowerAnt):
     name = 'Slow'
     food_cost = 6
     # BEGIN Problem EC
+    slow_count = 5
     implemented = False   # Change to True to view in the GUI
     # END Problem EC
 
@@ -550,6 +634,35 @@ class SlowThrower(ThrowerAnt):
 
         # BEGIN Problem EC
         "*** YOUR CODE HERE ***"
+        # 附魔减速debuff
+        target.slow_count = self.slow_count
+        
+        def slow_action(self,gamestate):
+              if self.slow_count:
+                self.slow_count -= 1
+                if gamestate.time % 2 == 0: 
+                    action(self,gamestate)
+
+        target.action = slow_action
+
+
+
+        def slow_action(self,gamestate,action = target.action):
+            if self.slow_count:
+                self.slow_count -= 1
+                if gamestate.time % 2 == 0: 
+                    action(self,gamestate)
+
+        if target.slow_count == 0:
+            target.slow_count = self.slow_count
+            target.action = slow_action
+        
+        
+
+        
+
+        # 对目标执行攻击
+        super().throw_at(target)
         # END Problem EC
 
 
@@ -694,6 +807,7 @@ class GameState:
         self.configure(beehive, create_places)
         # BEGIN Problem 12
         "*** YOUR CODE HERE ***"
+        self.queen = None
         # END Problem 12
 
     def configure(self, beehive, create_places):
